@@ -1,0 +1,12 @@
+[package]
+name = "meetup_talk_ai_todo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+eyre = "0.6.12"
+reqwest = { version = "0.12.9", features = ["json", "blocking"] }
+serde = { version = "1.0.215", features = ["derive"] }
+
+[workspace]
+members = ["bb_ollama"]
