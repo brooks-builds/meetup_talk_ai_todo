@@ -16,4 +16,10 @@ impl ChatRequestOptions {
 
         self
     }
+
+    pub fn system(mut self, system: impl Into<String>) -> Self {
+        self.system = Some(system.into());
+
+        self
+    }
 }
