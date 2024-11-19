@@ -102,10 +102,18 @@ impl Property {
             description: description.into(),
         }
     }
+
+    pub fn new_bool(description: impl Into<String>) -> Self {
+        Self {
+            property_type: PropertyType::Bool,
+            description: description.into(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PropertyType {
     String,
+    Bool,
 }

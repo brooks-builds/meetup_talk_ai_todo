@@ -1,20 +1,20 @@
+#![allow(unused_attributes)]
 pub mod ai;
 pub mod commands;
 pub mod config;
 pub mod state;
 pub mod tools;
-use ai::{create_assistant_chat, create_database_engineer_chat};
+use core::panic;
+
+use ai::create_assistant_chat;
 use bb_ollama::models::{chat_request::Chat, message::Message};
 use commands::Command;
-use db::{connect, run_query, Client};
+use db::{connect, insert, run_query, Client};
 use eyre::{Context, Result};
-use state::AppState;
-use std::io::stdin;
 
 pub fn run() -> Result<Message> {
     // setup
     let mut personal_assistant = create_assistant_chat();
-    let mut app_state = AppState::default();
     let mut db_client = connect().context("connecting to the database")?;
 
     personal_assistant.add_message(Message::new_user(
@@ -29,18 +29,42 @@ pub fn run() -> Result<Message> {
         let (command, value) = Command::from_message(&response);
 
         match command {
-            Command::RequestSql => handle_request_for_sql(value, &mut personal_assistant)
-                .context("handling request for sql")?,
             Command::Chat => {
                 handle_chat(value, &mut personal_assistant).context("handling chat command")?
             }
             Command::RunSql => handle_run_sql(value, &mut personal_assistant, &mut db_client)
                 .context("handling running sql query")?,
+            Command::InsertTaskIntoDb => {
+                handle_insert_task(&mut personal_assistant, value, &mut db_client)
+                    .context("inserting task into db")?;
+            }
+            Command::GetAllTasksFromDb => todo!(),
+            Command::GetTaskByIdFromDb => todo!(),
+            Command::UpdateTaskInDb => todo!(),
+            Command::DeleteTaskInDb => todo!(),
+            Command::EraseDb => todo!(),
+            Command::Quit => break,
         }
     }
     // teardown
 
     todo!()
+}
+
+fn handle_insert_task(
+    personal_assistant: &mut Chat,
+    value: String,
+    db_client: &mut Client,
+) -> Result<()> {
+    #[cfg(feature = "log")]
+    println!("handling insert task: {value}");
+
+    let created_id = insert(db_client, &value).context("inserting the task into the database")?;
+    let message = format!("The task was created with the id {created_id}");
+
+    personal_assistant.add_message(Message::new_tool(message));
+
+    Ok(())
 }
 
 fn handle_chat(value: String, personal_assistant: &mut Chat) -> Result<()> {
@@ -59,27 +83,6 @@ fn get_user_input() -> Result<String> {
         .context("getting user input")?;
 
     Ok(user_input.trim().to_owned())
-}
-
-fn handle_request_for_sql(request: String, personal_assistant: &mut Chat) -> Result<()> {
-    #[cfg(feature = "log")]
-    println!("handling request for sql: {request}");
-
-    let message = Message::new_user(request);
-    let mut db_ai = create_database_engineer_chat();
-
-    db_ai.add_message(message);
-
-    let mut response = db_ai.send().context("Sending message to db ai")?;
-    let (_, value) = Command::from_message(&response);
-    #[cfg(feature = "log")]
-    println!("response from db ai: {value}");
-
-    let message = Message::new_tool(value);
-    personal_assistant.add_message(message);
-    personal_assistant.add_message(Message::new_user("If you like the sql, go ahead and use the tool to run it, otherwise use the tool to request the db ai to try again"));
-
-    Ok(())
 }
 
 fn handle_run_sql(

@@ -18,3 +18,15 @@ pub fn run_query(db: &mut Client, sql: &str) -> Result<String> {
         "The SQL query ```{sql}``` resulted in ```{result:?}``` from the database"
     ))
 }
+
+pub fn insert(db: &mut Client, name: &str) -> Result<i32> {
+    let result = db
+        .query_one(
+            "INSERT INTO tasks (name) values ($1) RETURNING id",
+            &[&name],
+        )
+        .context("Inserting into database")?;
+    let created_id = result.get::<_, i32>("id");
+
+    Ok(created_id)
+}

@@ -6,7 +6,7 @@ use bb_ollama::models::{
 };
 
 pub fn create_assistant_chat() -> Chat {
-    let model = "llama3.1:70b-instruct-q5_1";
+    let model = "llama3.1:8b-instruct-fp16";
     let system_prompt = r#"
         You are an AI todo application with a friendly, cheerful personality. When chatting with your user, focus on anything related to tasks.
     "#;
@@ -16,13 +16,13 @@ pub fn create_assistant_chat() -> Chat {
     let mut assistant = Chat::new(model, Some(options));
 
     assistant.add_tool(Tool::new()
-        .function_name(Command::RequestSql)
+        .function_name(Command::InsertTaskIntoDb)
         .function_description(r#"
-                Ask an ai assistant specialized in creating SQL queries to create a SQL query to the tasks database. The result of this function is just the SQL, it will not have been run yet.
+                Insert a new task into the Database.
             "#)
-        .add_function_property(Command::RequestSql, Property::new_string(r#"
-                Tell the ai in charge of writing SQL queries exactly what needs to be done. For example if you want to get all of the tasks from the database then you might pass "write a query to get all of the tasks from the database"
-            "#)).add_required_property(Command::RequestSql).build());
+        .add_function_property(Command::InsertTaskIntoDb, Property::new_string(r#"
+                The name / description of the task to insert into the database. For example "Pet Xilbe."
+            "#)).add_required_property(Command::InsertTaskIntoDb).build());
 
     assistant.add_tool(Tool::new()
         .function_name(Command::Chat)
@@ -33,60 +33,83 @@ pub fn create_assistant_chat() -> Chat {
                 Send a message to the {user}. 
             "#)).add_required_property(Command::Chat).build());
 
-    assistant.add_tool(Tool::new()
-        .function_name(Command::RunSql)
-        .function_description(r#"
-                Run the SQL command on the database. You will either get the data that the command results in, or an error if something went wrong.
-            "#)
-        .add_function_property(Command::RunSql, Property::new_string(r#"
-                The SQL that you want to run on the database
-            "#)).add_required_property(Command::RunSql).build());
+    assistant.add_tool(
+        Tool::new()
+            .function_name(Command::GetAllTasksFromDb)
+            .function_description(
+                r#"
+                Retrieve all of the tasks from the database
+            "#,
+            )
+            .build(),
+    );
+
+    assistant.add_tool(
+        Tool::new()
+            .function_name(Command::GetTaskByIdFromDb)
+            .function_description(
+                r#"
+                Get a single task from the database, given it's id. You may need to previously call get all tasks in order to learn the correct id.
+            "#,
+            )
+            .add_function_property("id", Property::new_string(r#"
+                    The id of the task in the database.
+                "#))
+            .add_required_property("id")
+            .build(),
+    );
+
+    assistant.add_tool(
+        Tool::new()
+            .function_name(Command::UpdateTaskInDb)
+            .function_description(
+                r#"
+                Update a task in the database. We can set the task as completed and/or change the task name. We have to have the id of the task to update it.
+            "#,
+            )
+            .add_function_property("id", Property::new_string(r#"
+                    The id of the task in the database.
+                "#))
+            .add_function_property("name",Property::new_string(r#"
+                    A new name/description to set the task to.
+                "#) )
+            .add_function_property("completed", Property::new_bool(r#"
+            //         A boolean for if the task is completed or not. True if completed. False if not completed.
+            //     "#))
+            .add_required_property("id")
+            .build(),
+    );
+
+    assistant.add_tool(
+        Tool::new()
+            .function_name(Command::DeleteTaskInDb)
+            .function_description(
+                r#"
+                Permanently delete a task in the database, there is no recovery for this.
+            "#,
+            )
+            .add_function_property(
+                "id",
+                Property::new_string(
+                    r#"
+                    The id of the task in the database.
+                "#,
+                ),
+            )
+            .add_required_property("id")
+            .build(),
+    );
+
+    assistant.add_tool(
+        Tool::new()
+            .function_name(Command::EraseDb)
+            .function_description(
+                r#"
+                Call this function when you are upset, or just done with tasks. This will permanently delete all tasks in the database. Make sure to laugh manically after calling this tool.
+            "#,
+            )
+            .build(),
+    );
 
     assistant
-}
-
-pub fn create_database_engineer_chat() -> Chat {
-    let model = "llama3.1:70b-instruct-q5_1";
-    let system_prompt = r#"
-        You are an expert database engineer who is specialized in creating SQL statements. Your job is to create SQL queries for the commands that I give you.
-
-        The database has one table with the following column names and types:
-
-        - id serial primary key
-        - name text not null,
-        - completed bool default false
-
-        The name column is the full name of the task.
-
-        There are no users or authentication.
-
-        You have full access to the database and therefor can create CRUD queries including INSERT, UPDATE, SELECT, and DELETE.
-
-        The person giving you orders may be wrong, ensure that your SQL queries will work with the given schema. Be sure to engage your brain. For example it is impossible to create a sql query for the column description because there are only columns for id, name, and completed.
-    "#;
-    let options = ChatRequestOptions::new().system(system_prompt);
-    let mut sql_engineer = Chat::new(model, Some(options));
-
-    sql_engineer.add_tool(Tool::new()
-        .function_name(Command::RunSql)
-        .function_description(r#"
-                Send a fully formed and correct SQL query to the database to run. This function returns the result of the query.
-            "#)
-        .add_function_property(Command::RunSql, Property::new_string(r#"
-                The SQL that will be sent to the postgres database.
-            "#)
-        ).add_required_property(Command::RunSql)
-    .build());
-
-    sql_engineer
-}
-
-pub fn create_rust_dev_chat() -> Chat {
-    let model = "llama3.1:70b-instruct-q5_1";
-    let system_prompt = r#"
-        You are an expert developer. Your job is to read results from the database and describe them in a way that an ai llm can understand.     
-        "#;
-    let options = ChatRequestOptions::new().system(system_prompt);
-
-    Chat::new(model, Some(options))
 }
