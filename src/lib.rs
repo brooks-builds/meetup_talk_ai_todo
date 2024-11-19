@@ -4,99 +4,95 @@ pub mod config;
 pub mod state;
 pub mod tools;
 use ai::{create_assistant_chat, create_database_engineer_chat};
-use bb_ollama::models::message::Message;
+use bb_ollama::models::{chat_request::Chat, message::Message};
 use commands::Command;
-use db::{connect, run_query};
+use db::{connect, run_query, Client};
 use eyre::{Context, Result};
+use state::AppState;
 use std::io::stdin;
 
 pub fn run() -> Result<Message> {
+    // setup
     let mut personal_assistant = create_assistant_chat();
-    let mut database_engineer = create_database_engineer_chat();
-    let mut db_client = connect()?;
-
-    personal_assistant.add_message(Message::new_user("Hello"));
-
-    let app_greeting = personal_assistant
-        .send()
-        .context("Sending initial message")?;
-
-    let (command, greeting) = Command::from_message(&app_greeting);
-    if command == Command::Chat {
-        println!("{greeting}");
-    }
-
-    loop {
-        let user_input = get_user_input().context("main loop getting user input")?;
-
-        personal_assistant.add_message(Message::new_user(user_input));
-        let (command, message) = Command::from_message(
-            &personal_assistant
-                .send()
-                .context("main loop getting command from message")?,
-        );
-
-        #[cfg(feature = "log_messages")]
-        println!("\n***Personal Assistant running command {command}: {message}***\n");
-
-        match command {
-            Command::RequestSql => {
-                database_engineer.add_message(Message::new_user(message));
-
-                let (command, query) = Command::from_message(
-                    &database_engineer
-                        .send()
-                        .context("sending message to database engineer")?,
-                );
-                if command == Command::Sql {
-                    #[cfg(feature = "log_messages")]
-                    println!("database engineer wrote this query: {query}");
-
-                    let Ok(query_result) = run_query(&mut db_client, &query) else {
-                        personal_assistant.add_message(Message::new_tool(
-                            "There was an error running the database query",
-                        ));
-
-                        continue;
-                    };
-
-                    #[cfg(feature = "log_messages")]
-                    println!("result from the database: {query_result}");
-
-                    let message_to_rust_dev = Message::new_tool(query_result);
-
-                    personal_assistant.add_message(message_to_rust_dev);
-                } else {
-                    #[cfg(feature = "log_messages")]
-                    println!("Not a sql command: {query}");
-
-                    panic!("database engineer didn't call an appropriate tool");
-                }
-            }
-            Command::Chat => println!("{message}"),
-            Command::Sql => break,
-        }
-
-        println!(
-            "{}",
-            personal_assistant
-                .send()
-                .context("Turn over, having personal assistant respond to user")?
-        );
-    }
+    let mut app_state = AppState::default();
+    let mut db_client = connect().context("connecting to the database")?;
 
     personal_assistant.add_message(Message::new_user(
-        "Thanks for the help, I'm heading out now",
+        "User has connected and is ready to work with you",
     ));
-    personal_assistant.send().context("Sending end message")
+
+    // update
+    loop {
+        let response = personal_assistant
+            .send()
+            .context("Sending message to personal assistant")?;
+        let (command, value) = Command::from_message(&response);
+
+        match command {
+            Command::RequestSql => handle_request_for_sql(value, &mut personal_assistant)
+                .context("handling request for sql")?,
+            Command::Chat => {
+                handle_chat(value, &mut personal_assistant).context("handling chat command")?
+            }
+            Command::RunSql => handle_run_sql(value, &mut personal_assistant, &mut db_client)
+                .context("handling running sql query")?,
+        }
+    }
+    // teardown
+
+    todo!()
+}
+
+fn handle_chat(value: String, personal_assistant: &mut Chat) -> Result<()> {
+    println!("{value}");
+    let user_input = get_user_input().context("handle chat")?;
+    let message = Message::new_user(user_input);
+    personal_assistant.add_message(message);
+
+    Ok(())
 }
 
 fn get_user_input() -> Result<String> {
     let mut user_input = String::new();
-
-    stdin()
+    std::io::stdin()
         .read_line(&mut user_input)
-        .context("Reading user input")?;
+        .context("getting user input")?;
 
     Ok(user_input.trim().to_owned())
+}
+
+fn handle_request_for_sql(request: String, personal_assistant: &mut Chat) -> Result<()> {
+    #[cfg(feature = "log")]
+    println!("handling request for sql: {request}");
+
+    let message = Message::new_user(request);
+    let mut db_ai = create_database_engineer_chat();
+
+    db_ai.add_message(message);
+
+    let mut response = db_ai.send().context("Sending message to db ai")?;
+    let (_, value) = Command::from_message(&response);
+    #[cfg(feature = "log")]
+    println!("response from db ai: {value}");
+
+    let message = Message::new_tool(value);
+    personal_assistant.add_message(message);
+    personal_assistant.add_message(Message::new_user("If you like the sql, go ahead and use the tool to run it, otherwise use the tool to request the db ai to try again"));
+
+    Ok(())
+}
+
+fn handle_run_sql(
+    request: String,
+    personal_assistant: &mut Chat,
+    db_client: &mut Client,
+) -> Result<()> {
+    match run_query(db_client, &request) {
+        Ok(result) => personal_assistant.add_message(Message::new_tool(result)),
+        Err(error) => personal_assistant.add_message(Message::new_tool(format!(
+            "There was an error attempting to run the database query: {error}"
+        ))),
+    }
+
+    Ok(())
 }

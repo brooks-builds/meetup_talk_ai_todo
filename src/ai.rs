@@ -6,9 +6,9 @@ use bb_ollama::models::{
 };
 
 pub fn create_assistant_chat() -> Chat {
-    let model = "llama3.1:8b-instruct-fp16";
+    let model = "llama3.1:70b-instruct-q5_1";
     let system_prompt = r#"
-        You are a virtual personal assitant. Your job is to interpret my commands and consistently summarize them for another AI worker.
+        You are an AI todo application with a friendly, cheerful personality. When chatting with your user, focus on anything related to tasks.
     "#;
     let options = ChatRequestOptions::new()
         .system(system_prompt)
@@ -18,7 +18,7 @@ pub fn create_assistant_chat() -> Chat {
     assistant.add_tool(Tool::new()
         .function_name(Command::RequestSql)
         .function_description(r#"
-                Ask an ai assistant specialized in creating SQL queries to create a SQL query to the tasks database.
+                Ask an ai assistant specialized in creating SQL queries to create a SQL query to the tasks database. The result of this function is just the SQL, it will not have been run yet.
             "#)
         .add_function_property(Command::RequestSql, Property::new_string(r#"
                 Tell the ai in charge of writing SQL queries exactly what needs to be done. For example if you want to get all of the tasks from the database then you might pass "write a query to get all of the tasks from the database"
@@ -33,11 +33,20 @@ pub fn create_assistant_chat() -> Chat {
                 Send a message to the {user}. 
             "#)).add_required_property(Command::Chat).build());
 
+    assistant.add_tool(Tool::new()
+        .function_name(Command::RunSql)
+        .function_description(r#"
+                Run the SQL command on the database. You will either get the data that the command results in, or an error if something went wrong.
+            "#)
+        .add_function_property(Command::RunSql, Property::new_string(r#"
+                The SQL that you want to run on the database
+            "#)).add_required_property(Command::RunSql).build());
+
     assistant
 }
 
 pub fn create_database_engineer_chat() -> Chat {
-    let model = "llama3.1:8b-instruct-fp16";
+    let model = "llama3.1:70b-instruct-q5_1";
     let system_prompt = r#"
         You are an expert database engineer who is specialized in creating SQL statements. Your job is to create SQL queries for the commands that I give you.
 
@@ -59,21 +68,21 @@ pub fn create_database_engineer_chat() -> Chat {
     let mut sql_engineer = Chat::new(model, Some(options));
 
     sql_engineer.add_tool(Tool::new()
-        .function_name(Command::Sql)
+        .function_name(Command::RunSql)
         .function_description(r#"
                 Send a fully formed and correct SQL query to the database to run. This function returns the result of the query.
             "#)
-        .add_function_property(Command::Sql, Property::new_string(r#"
+        .add_function_property(Command::RunSql, Property::new_string(r#"
                 The SQL that will be sent to the postgres database.
             "#)
-        ).add_required_property(Command::Sql)
+        ).add_required_property(Command::RunSql)
     .build());
 
     sql_engineer
 }
 
 pub fn create_rust_dev_chat() -> Chat {
-    let model = "llama3.1:8b-instruct-fp16";
+    let model = "llama3.1:70b-instruct-q5_1";
     let system_prompt = r#"
         You are an expert developer. Your job is to read results from the database and describe them in a way that an ai llm can understand.     
         "#;

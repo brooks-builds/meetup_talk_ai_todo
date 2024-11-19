@@ -5,7 +5,7 @@ use std::fmt::Display;
 pub enum Command {
     RequestSql,
     Chat,
-    Sql,
+    RunSql,
 }
 
 impl Command {
@@ -49,7 +49,7 @@ impl From<&str> for Command {
     fn from(value: &str) -> Self {
         match value.to_lowercase().as_str() {
             "request_sql" => Self::RequestSql,
-            "sql" => Self::Sql,
+            "run_sql" => Self::RunSql,
             _ => Self::Chat,
         }
     }
@@ -60,7 +60,7 @@ impl Display for Command {
         let command = match self {
             Self::RequestSql => "request_sql",
             Self::Chat => "chat",
-            Self::Sql => "sql",
+            Self::RunSql => "run_sql",
         };
 
         write!(f, "{command}")

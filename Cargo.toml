@@ -14,4 +14,4 @@ db = { path = "./db" }
 members = ["bb_ollama", "db"]
 
 [features]
-log_messages = []
+log = []

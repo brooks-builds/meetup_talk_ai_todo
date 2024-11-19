@@ -1,7 +1,7 @@
 use std::env;
 
 use eyre::{Context, Result};
-use postgres::{Client, NoTls};
+pub use postgres::{Client, NoTls};
 
 pub fn connect() -> Result<Client> {
     dotenvy::dotenv().ok();
