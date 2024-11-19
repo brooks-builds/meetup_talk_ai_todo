@@ -38,6 +38,8 @@ impl Command {
                 .cloned()
                 .unwrap_or("".to_owned());
 
+            dbg!(&function.arguments);
+
             (command, argument.to_owned())
         } else {
             (Self::Chat, message.content.clone())

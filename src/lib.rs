@@ -9,7 +9,7 @@ use core::panic;
 use ai::create_assistant_chat;
 use bb_ollama::models::{chat_request::Chat, message::Message};
 use commands::Command;
-use db::{connect, insert, run_query, Client};
+use db::{connect, get_all_tasks, get_task_by_id, insert, run_query, Client};
 use eyre::{Context, Result};
 
 pub fn run() -> Result<Message> {
@@ -38,8 +38,14 @@ pub fn run() -> Result<Message> {
                 handle_insert_task(&mut personal_assistant, value, &mut db_client)
                     .context("inserting task into db")?;
             }
-            Command::GetAllTasksFromDb => todo!(),
-            Command::GetTaskByIdFromDb => todo!(),
+            Command::GetAllTasksFromDb => {
+                handle_get_all_tasks(&mut personal_assistant, &mut db_client)
+                    .context("getting all tasks")?;
+            }
+            Command::GetTaskByIdFromDb => {
+                handle_get_task_by_id(&mut personal_assistant, &mut db_client, value)
+                    .context("getting task by id")?;
+            }
             Command::UpdateTaskInDb => todo!(),
             Command::DeleteTaskInDb => todo!(),
             Command::EraseDb => todo!(),
@@ -63,6 +69,48 @@ fn handle_insert_task(
     let message = format!("The task was created with the id {created_id}");
 
     personal_assistant.add_message(Message::new_tool(message));
+
+    Ok(())
+}
+
+fn handle_get_all_tasks(personal_assistant: &mut Chat, db_client: &mut Client) -> Result<()> {
+    #[cfg(feature = "log")]
+    println!("handling get all tasks");
+
+    let all_tasks = get_all_tasks(db_client).context("getting all tasks")?;
+    let tasks_as_messages = all_tasks
+        .into_iter()
+        .map(|task| Message::new_tool(task.to_string()))
+        .collect::<Vec<Message>>();
+
+    tasks_as_messages
+        .into_iter()
+        .for_each(|task| personal_assistant.add_message(task));
+
+    Ok(())
+}
+
+fn handle_get_task_by_id(
+    personal_assistant: &mut Chat,
+    db_client: &mut Client,
+    id: String,
+) -> Result<()> {
+    #[cfg(feature = "log")]
+    println!("handling get one task with id {id}");
+
+    let Ok(id) = id.parse::<i32>() else {
+        personal_assistant.add_message(Message::new_tool(
+            "ERROR: The id you passed in was not a number",
+        ));
+        return Ok(());
+    };
+
+    let Some(task) = get_task_by_id(db_client, id).context("getting task by id")? else {
+        personal_assistant.add_message(Message::new_tool("No task exists with the given id"));
+        return Ok(());
+    };
+
+    personal_assistant.add_message(Message::new_tool(task.to_string()));
 
     Ok(())
 }

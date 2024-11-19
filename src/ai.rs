@@ -52,10 +52,10 @@ pub fn create_assistant_chat() -> Chat {
                 Get a single task from the database, given it's id. You may need to previously call get all tasks in order to learn the correct id.
             "#,
             )
-            .add_function_property("id", Property::new_string(r#"
+            .add_function_property(Command::GetTaskByIdFromDb, Property::new_string(r#"
                     The id of the task in the database.
                 "#))
-            .add_required_property("id")
+            .add_required_property(Command::GetTaskByIdFromDb)
             .build(),
     );
 
