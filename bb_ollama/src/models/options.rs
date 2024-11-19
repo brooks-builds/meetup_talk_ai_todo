@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct ChatRequestOptions {
     pub system: Option<String>,
     pub seed: Option<u32>,
+    pub save_messages: bool,
 }
 
 impl ChatRequestOptions {
@@ -19,6 +20,12 @@ impl ChatRequestOptions {
 
     pub fn system(mut self, system: impl Into<String>) -> Self {
         self.system = Some(system.into());
+
+        self
+    }
+
+    pub fn save_messages(mut self) -> Self {
+        self.save_messages = true;
 
         self
     }

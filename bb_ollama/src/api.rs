@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use eyre::{Context, Result};
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
@@ -11,6 +13,7 @@ pub fn send_to_ollama(chat: &Chat) -> Result<Message> {
     let request = client
         .post(OLLAMA_CHAT_URL)
         .json(chat)
+        .timeout(Duration::from_secs(60 * 15))
         .send()
         .context("Sending message to Ollama")?;
     let chat_response = request

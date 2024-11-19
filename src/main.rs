@@ -1,10 +1,9 @@
-use meetup_talk_ai_todo::{config::Config, run};
+use bb_ollama::models::message::Message;
+use meetup_talk_ai_todo::run;
 
 fn main() {
-    let config = Config::new().unwrap();
-
-    match run(config) {
-        Ok(_) => println!("Thanks for using AI Todo, please come again."),
+    match run() {
+        Ok(Message { content, .. }) => println!("{content}"),
         Err(error) => eprintln!("There was an error using AI Todo :( {error}"),
     }
 }

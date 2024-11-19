@@ -1,119 +1,83 @@
-use eyre::{Context, Result};
-use reqwest::blocking::Client;
-use serde::{Deserialize, Serialize};
+use crate::commands::Command;
+use bb_ollama::models::{
+    chat_request::Chat,
+    options::ChatRequestOptions,
+    tool::{Property, Tool},
+};
 
-use crate::config::Config;
+pub fn create_assistant_chat() -> Chat {
+    let model = "llama3.1:8b-instruct-fp16";
+    let system_prompt = r#"
+        You are a virtual personal assitant. Your job is to interpret my commands and consistently summarize them for another AI worker.
+    "#;
+    let options = ChatRequestOptions::new()
+        .system(system_prompt)
+        .save_messages();
+    let mut assistant = Chat::new(model, Some(options));
 
-pub enum Command {
-    Create,
-    Update,
-    Get,
-    Delete,
+    assistant.add_tool(Tool::new()
+        .function_name(Command::RequestSql)
+        .function_description(r#"
+                Ask an ai assistant specialized in creating SQL queries to create a SQL query to the tasks database.
+            "#)
+        .add_function_property(Command::RequestSql, Property::new_string(r#"
+                Tell the ai in charge of writing SQL queries exactly what needs to be done. For example if you want to get all of the tasks from the database then you might pass "write a query to get all of the tasks from the database"
+            "#)).add_required_property(Command::RequestSql).build());
+
+    assistant.add_tool(Tool::new()
+        .function_name(Command::Chat)
+        .function_description(r#"
+                Send a message to {user}. You may choose to use this function if you have info that you want to tell the user, or you may choose to do this to ask follow up questions until you are ready to call another function.
+            "#)
+        .add_function_property(Command::Chat, Property::new_string(r#"
+                Send a message to the {user}. 
+            "#)).add_required_property(Command::Chat).build());
+
+    assistant
 }
 
-pub fn ask_ai_what_tool_to_use(user_input: &str, config: &Config) -> Result<Command> {
-    println!("asking ai what to do");
-    let response = send_to_ai(config, user_input)?;
+pub fn create_database_engineer_chat() -> Chat {
+    let model = "llama3.1:8b-instruct-fp16";
+    let system_prompt = r#"
+        You are an expert database engineer who is specialized in creating SQL statements. Your job is to create SQL queries for the commands that I give you.
 
-    todo!()
+        The database has one table with the following column names and types:
+
+        - id serial primary key
+        - name text not null,
+        - completed bool default false
+
+        The name column is the full name of the task.
+
+        There are no users or authentication.
+
+        You have full access to the database and therefor can create CRUD queries including INSERT, UPDATE, SELECT, and DELETE.
+
+        The person giving you orders may be wrong, ensure that your SQL queries will work with the given schema. Be sure to engage your brain. For example it is impossible to create a sql query for the column description because there are only columns for id, name, and completed.
+    "#;
+    let options = ChatRequestOptions::new().system(system_prompt);
+    let mut sql_engineer = Chat::new(model, Some(options));
+
+    sql_engineer.add_tool(Tool::new()
+        .function_name(Command::Sql)
+        .function_description(r#"
+                Send a fully formed and correct SQL query to the database to run. This function returns the result of the query.
+            "#)
+        .add_function_property(Command::Sql, Property::new_string(r#"
+                The SQL that will be sent to the postgres database.
+            "#)
+        ).add_required_property(Command::Sql)
+    .build());
+
+    sql_engineer
 }
 
-#[derive(Debug, Serialize)]
-struct RequestJson {
-    pub model: String,
-    pub messages: Vec<OllamaMessage>,
-    pub stream: bool,
-    pub raw: bool,
-    pub tools: Vec<Tool>,
-}
+pub fn create_rust_dev_chat() -> Chat {
+    let model = "llama3.1:8b-instruct-fp16";
+    let system_prompt = r#"
+        You are an expert developer. Your job is to read results from the database and describe them in a way that an ai llm can understand.     
+        "#;
+    let options = ChatRequestOptions::new().system(system_prompt);
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct OllamaMessage {
-    pub role: String,
-    pub content: String,
-    pub tool_calls: Option<Vec<Tool>>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Tool {
-    #[serde(rename = "type")]
-    pub tool_type: Option<String>,
-    pub function: Function,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Function {
-    pub name: String,
-    pub description: Option<String>,
-}
-
-fn send_to_ai(config: &Config, user_input: &str) -> Result<()> {
-    let client = Client::new();
-    let body = RequestJson {
-        model: config.model.clone(),
-        messages: vec![OllamaMessage {
-            role: "user".to_owned(),
-            content: user_input.to_owned(),
-            tool_calls: None,
-        }],
-        stream: false,
-        raw: false,
-        tools: vec![
-            Tool {
-                tool_type: Some("function".to_owned()),
-                function: Function {
-                    name: "create_task".to_owned(),
-                    description: Some(
-                        "the user wants to create a new task and insert it into the database."
-                            .to_owned(),
-                    ),
-                },
-            },
-            Tool {
-                tool_type: Some("function".to_owned()),
-                function: Function {
-                    name: "get_tasks".to_owned(),
-                    description: Some(
-                        "the user wants to retrieve one or more tasks from the database."
-                            .to_owned(),
-                    ),
-                },
-            },
-            Tool {
-                tool_type: Some("function".to_owned()),
-                function: Function {
-                    name: "update_task".to_owned(),
-                    description: Some(
-                        "the user wants to update a task in the database.".to_owned(),
-                    ),
-                },
-            },
-            Tool {
-                tool_type: Some("function".to_owned()),
-                function: Function {
-                    name: "delete_task".to_owned(),
-                    description: Some(
-                        "the user wants to delete a task in the database.".to_owned(),
-                    ),
-                },
-            },
-        ],
-    };
-    let response = client
-        .post(config.ollama_url.clone())
-        .json(&body)
-        .send()
-        .context("sending request find what the ai wants to do")?
-        .json::<OllamaResponse>()
-        .context("converting response to rust")?;
-
-    println!("response from ai: {response:?}");
-
-    todo!()
-}
-
-#[derive(Debug, Deserialize)]
-pub struct OllamaResponse {
-    pub model: String,
-    pub message: OllamaMessage,
+    Chat::new(model, Some(options))
 }

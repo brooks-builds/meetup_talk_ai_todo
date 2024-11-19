@@ -12,3 +12,6 @@ db = { path = "./db" }
 
 [workspace]
 members = ["bb_ollama", "db"]
+
+[features]
+log_messages = []

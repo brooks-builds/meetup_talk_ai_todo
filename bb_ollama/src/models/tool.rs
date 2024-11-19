@@ -51,12 +51,16 @@ impl ToolBuilder {
         self
     }
 
-    pub fn build(self) -> Option<Tool> {
+    pub fn build(self) -> Tool {
         let tool = Tool {
             tool_type: "function".to_owned(),
             function: Function {
-                name: self.function_name?,
-                description: self.function_description?,
+                name: self
+                    .function_name
+                    .expect("Missing function name when building tool"),
+                description: self
+                    .function_description
+                    .expect("Missing description when building tool"),
                 parameters: Parameter {
                     parameter_type: "object".to_owned(),
                     properties: self.properties,
@@ -65,7 +69,7 @@ impl ToolBuilder {
             },
         };
 
-        Some(tool)
+        tool
     }
 }
 

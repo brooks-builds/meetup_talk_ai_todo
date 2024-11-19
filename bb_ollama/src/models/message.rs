@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::tool_call::ToolCall;
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Message {
     pub role: Role,
     pub content: String,
@@ -33,6 +33,10 @@ impl Message {
             tool_calls,
         }
     }
+
+    pub fn prepend_content(&mut self, message: &str) {
+        self.content.insert_str(0, message);
+    }
 }
 
 impl Display for Message {
@@ -41,7 +45,7 @@ impl Display for Message {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
     System,
@@ -49,4 +53,18 @@ pub enum Role {
     User,
     Assistant,
     Tool,
+}
+
+mod tests {
+    #[allow(unused_imports)]
+    use super::*;
+
+    #[test]
+    fn should_prepend_message_to_content() {
+        let mut message = Message::new_tool("world");
+
+        message.prepend_content("hello ");
+
+        assert_eq!(message.content, "hello world");
+    }
 }
