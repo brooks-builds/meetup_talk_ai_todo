@@ -5,6 +5,7 @@ pub struct ChatRequestOptions {
     pub system: Option<String>,
     pub seed: Option<u32>,
     pub save_messages: bool,
+    pub temperature: f32,
 }
 
 impl ChatRequestOptions {
@@ -27,6 +28,11 @@ impl ChatRequestOptions {
     pub fn save_messages(mut self) -> Self {
         self.save_messages = true;
 
+        self
+    }
+
+    pub fn temperature(mut self, temperature: f32) -> Self {
+        self.temperature = temperature;
         self
     }
 }

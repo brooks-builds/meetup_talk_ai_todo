@@ -39,14 +39,14 @@ impl ToolBuilder {
         self
     }
 
-    pub fn add_function_property(mut self, name: impl Into<String>, property: Property) -> Self {
-        self.properties.insert(name.into(), property);
+    pub fn add_function_property(mut self, name: impl ToString, property: Property) -> Self {
+        self.properties.insert(name.to_string(), property);
 
         self
     }
 
-    pub fn add_required_property(mut self, property_name: impl Into<String>) -> Self {
-        self.required_properties.push(property_name.into());
+    pub fn add_required_property(mut self, property_name: impl ToString) -> Self {
+        self.required_properties.push(property_name.to_string());
 
         self
     }
@@ -105,8 +105,11 @@ impl Property {
 
     pub fn new_bool(description: impl Into<String>) -> Self {
         Self {
-            property_type: PropertyType::Bool,
-            description: description.into(),
+            property_type: PropertyType::String,
+            description: format!(
+                "{}. Note Be sure to set this property as a stringified version of a boolean",
+                description.into()
+            ),
         }
     }
 }

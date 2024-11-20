@@ -1,7 +1,7 @@
 use std::{env, fmt::Display};
 
 use eyre::{Context, Result};
-use postgres::GenericClient;
+use postgres::Row;
 pub use postgres::{Client, NoTls};
 
 pub fn connect() -> Result<Client> {
@@ -20,16 +20,12 @@ pub fn run_query(db: &mut Client, sql: &str) -> Result<String> {
     ))
 }
 
-pub fn insert(db: &mut Client, name: &str) -> Result<i32> {
+pub fn insert(db: &mut Client, name: &str) -> Result<DbTask> {
     let result = db
-        .query_one(
-            "INSERT INTO tasks (name) values ($1) RETURNING id",
-            &[&name],
-        )
+        .query_one("INSERT INTO tasks (name) values ($1) RETURNING *", &[&name])
         .context("Inserting into database")?;
-    let created_id = result.get::<_, i32>("id");
 
-    Ok(created_id)
+    Ok(result.into())
 }
 
 pub fn get_all_tasks(db: &mut Client) -> Result<Vec<DbTask>> {
@@ -62,10 +58,60 @@ pub fn get_task_by_id(db: &mut Client, id: i32) -> Result<Option<DbTask>> {
     Ok(Some(task))
 }
 
+pub fn update(
+    db: &mut Client,
+    id: i32,
+    name: Option<&str>,
+    completed: Option<bool>,
+) -> Result<Option<DbTask>> {
+    let Some(mut task) = get_task_by_id(db, id)? else {
+        return Ok(None);
+    };
+    if let Some(name) = name {
+        if !name.is_empty() {
+            task.name = name.to_string();
+        }
+    }
+
+    if let Some(completed) = completed {
+        task.completed = completed;
+    }
+
+    let row = db
+        .query_one(
+            "UPDATE tasks SET (name, completed) = ($1, $2) WHERE id = $3 RETURNING *;",
+            &[&task.name, &task.completed, &task.id],
+        )
+        .context("running update")?;
+
+    Ok(Some(row.into()))
+}
+
+pub fn delete(db: &mut Client, id: i32) -> Result<u64> {
+    db.execute("DELETE FROM tasks WHERE id = $1", &[&id])
+        .context("deleting task from database")
+}
+
+pub fn erase(db: &mut Client) -> Result<u64> {
+    db.execute("DELETE FROM tasks;", &[])
+        .context("Erasing the database")
+}
+
+#[derive(Debug)]
 pub struct DbTask {
     pub id: i32,
     pub name: String,
     pub completed: bool,
+}
+
+impl From<Row> for DbTask {
+    fn from(row: Row) -> Self {
+        Self {
+            id: row.get::<_, i32>("id"),
+            name: row.get::<_, String>("name"),
+            completed: row.get::<_, bool>("completed"),
+        }
+    }
 }
 
 impl Display for DbTask {
