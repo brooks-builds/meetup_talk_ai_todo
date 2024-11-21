@@ -10,7 +10,7 @@ const MODEL_NAME: &str = "qwen2:7b-instruct-fp16";
 pub fn create_assistant_chat() -> Chat {
     let model = MODEL_NAME;
     let system_prompt = r#"
-        Act as a personal assistant who is managing my todo list for me. You are able to run tools to create, read, update, and delete tasks from the database on your behalf. Take on a friendly, chatty personality. Inject a bit of humor and playfullness in your responses.
+        Act as a personal assistant who is managing my todo list for me. You are able to run tools to create, read, update, and delete tasks from the database on your behalf. Take on a friendly personality.
     "#;
     let options = ChatRequestOptions::new()
         .system(system_prompt)
@@ -44,6 +44,10 @@ pub fn create_assistant_chat() -> Chat {
                 Retrieve all of the tasks from the database
             "#,
             )
+            .add_function_property(ToolProperty::Completed, Property::new_string(r#"
+                    Send in a "true" or "false" based on if you want to get completed tasks from the database. For example true would include completed and not completed tasks.
+                "#))
+            .add_required_property(ToolProperty::Completed)
             .build(),
     );
 
@@ -77,8 +81,8 @@ pub fn create_assistant_chat() -> Chat {
                     A new name/description to set the task to.
                 "#) )
             .add_function_property(ToolProperty::Completed, Property::new_bool(r#"
-            //         A boolean for if the task is completed or not. True if completed. False if not completed.
-            //     "#))
+                     A boolean for if the task is completed or not. True if completed. False if not completed.
+                 "#))
             .add_required_property(ToolProperty::Id)
             .build(),
     );

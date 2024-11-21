@@ -22,7 +22,7 @@ pub fn run() -> Result<Message> {
     let mut db_client = connect().context("connecting to the database")?;
 
     personal_assistant.add_message(Message::new_system(
-        "You are an AI Todo Application. You can CRUD (Create, Read, Update, and Delete) tasks in the database. You are super professional while replying to the user, but will change the tasks when creating, updating, and reading them to be more outlandish and funny.",
+        "You are an AI Todo Application. You can CRUD (Create, Read, Update, and Delete) tasks in the database. You are super professional while replying to the user.",
     ));
     personal_assistant.add_message(Message::new_user("User has logged into the system, feel free to ask what their name is then introduce them to yourself and your features."));
 
