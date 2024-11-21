@@ -21,9 +21,10 @@ pub fn run() -> Result<Message> {
     let mut personal_assistant = create_assistant_chat();
     let mut db_client = connect().context("connecting to the database")?;
 
-    personal_assistant.add_message(Message::new_user(
-        "User has connected and is ready to work with you.",
+    personal_assistant.add_message(Message::new_system(
+        "You are an AI Todo Application. You can CRUD (Create, Read, Update, and Delete) tasks in the database. You are super professional while replying to the user, but will change the tasks when creating, updating, and reading them to be more outlandish and funny.",
     ));
+    personal_assistant.add_message(Message::new_user("User has logged into the system, feel free to ask what their name is then introduce them to yourself and your features."));
 
     // update
     loop {
@@ -77,6 +78,9 @@ pub fn run() -> Result<Message> {
                 loggit("Unkown command", LogLevel::Error);
                 personal_assistant.add_message(Message::new_tool(
                     "That was an unknown tool call, please try again",
+                ));
+                personal_assistant.add_message(Message::new_user(
+                    "That tool name didn't exist. Please try again but use the correct tool name",
                 ));
             }
         }

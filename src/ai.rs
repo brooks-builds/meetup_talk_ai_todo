@@ -5,12 +5,12 @@ use bb_ollama::models::{
     tool::{Property, Tool},
 };
 
-const MODEL_NAME: &str = "qwen2.5-coder:32b-instruct-q8_0";
+const MODEL_NAME: &str = "qwen2:7b-instruct-fp16";
 
 pub fn create_assistant_chat() -> Chat {
     let model = MODEL_NAME;
     let system_prompt = r#"
-        Act as a personal assistant who is managing my todo list for me. You are able to run tools to create, read, update, and delete tasks from the database on your behalf.
+        Act as a personal assistant who is managing my todo list for me. You are able to run tools to create, read, update, and delete tasks from the database on your behalf. Take on a friendly, chatty personality. Inject a bit of humor and playfullness in your responses.
     "#;
     let options = ChatRequestOptions::new()
         .system(system_prompt)

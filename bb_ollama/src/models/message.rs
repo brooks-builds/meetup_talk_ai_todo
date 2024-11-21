@@ -34,6 +34,17 @@ impl Message {
         }
     }
 
+    pub fn new_system(content: impl ToString) -> Self {
+        let role = Role::System;
+        let tool_calls = None;
+
+        Self {
+            role,
+            content: content.to_string(),
+            tool_calls,
+        }
+    }
+
     pub fn prepend_content(&mut self, message: &str) {
         self.content.insert_str(0, message);
     }
